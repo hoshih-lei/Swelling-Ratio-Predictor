@@ -1,7 +1,7 @@
 
 ***
 # 🧪 Swelling Ratio Predictor
-> A browser-based machine learning web application designed to predict polymer **equilibrium swelling ratios (SR)**. Powered by Pyodide, it runs a complete Python ML pipeline directly in the browser without any backend server, ensuring data privacy and zero deployment cost.
+> A browser-based machine learning web application designed to predict hydrogel **equilibrium swelling ratios (SR)**. Powered by Pyodide, it runs a complete Python ML pipeline directly in the browser without any backend server, ensuring data privacy and zero deployment cost.
 ![Made with Python](https://img.shields.io/badge/Made_with-Pyodide-3776AB?logo=python&logoColor=white)
 ![RDKit](https://img.shields.io/badge/Chemistry-RDKit.js-0066CC)
 ![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E)
