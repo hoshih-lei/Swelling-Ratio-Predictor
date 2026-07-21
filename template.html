@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swelling Ratio Predictor</title>
+<style>
+:root {
+  --bg-yellow: #FFF9E6;
+  --bg-red: #FFEBEE;
+  --card-bg: #FFFEF7;
+  --header-bg: #FFCCBC;
+  --accent-red: #E57373;
+  --accent-yellow: #FFD54F;
+  --btn-bg: #FF8A80;
+  --btn-hover: #FF5252;
+  --input-border: #FFB3B3;
+  --text: #424242;
+  --text-light: #757575;
+  --border: #FFCC80;
+  --shadow: 0 2px 8px rgba(229,115,115,0.15);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, var(--bg-yellow) 0%, var(--bg-red) 100%);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px;
+}
+#app { max-width: 1200px; margin: 0 auto; }
+header {
+  text-align: center; padding: 20px;
+  background: var(--card-bg); border-radius: 12px;
+  box-shadow: var(--shadow); margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+header h1 { color: var(--accent-red); font-size: 28px; margin-bottom: 4px; }
+header p { color: var(--text-light); font-size: 14px; }
+.status-bar {
+  margin-top: 8px; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+#status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+#status-dot.ready { background: #66BB6A; }
+#status-dot.loading { background: #FFB74D; animation: pulse 1s infinite; }
+#status-dot.error { background: #EF5350; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tab {
+  flex: 1; padding: 12px 20px;
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0; cursor: pointer;
+  font-size: 15px; font-weight: 500; color: var(--text-light);
+  transition: all 0.2s;
+}
+.tab.active { background: var(--accent-red); color: white; border-color: var(--accent-red); }
+.tab:hover:not(.active) { background: #FFF3E0; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.card {
+  background: var(--card-bg); border-radius: 10px;
+  padding: 20px; margin-bottom: 16px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.card h2 {
+  color: var(--accent-red); font-size: 18px;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-yellow);
+}
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.metric {
+  background: #FFFDE7; padding: 12px;
+  border-radius: 8px; border: 1px solid var(--border);
+  text-align: center;
+}
+.metric-value { font-size: 24px; font-weight: 700; color: var(--accent-red); }
+.metric-label { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+.plot-container { width: 100%; min-height: 400px; }
+.input-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.input-group { display: flex; flex-direction: column; }
+.input-group label { font-size: 13px; color: var(--text); margin-bottom: 4px; font-weight: 500; }
+.input-group .unit { font-size: 11px; color: var(--text-light); font-weight: 400; }
+.input-group input, .input-group select {
+  padding: 8px 12px; border: 1px solid var(--input-border);
+  border-radius: 6px; font-size: 14px; background: #FFFEF7; color: var(--text);
+}
+.input-group input:focus, .input-group select:focus {
+  outline: none; border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(229,115,115,0.1);
+}
+button {
+  padding: 10px 24px; background: var(--btn-bg); color: white;
+  border: none; border-radius: 8px; font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+button:hover { background: var(--btn-hover); }
+button:disabled { background: #FFCC80; cursor: not-allowed; }
+button:disabled:hover { background: #FFCC80; }
+.prediction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 768px) { .prediction-grid { grid-template-columns: 1fr; } }
+.prediction-result-card { display: flex; align-items: center; gap: 20px; }
+.predict-btn { flex-shrink: 0; padding: 14px 32px; font-size: 16px; }
+.prediction-result { flex-grow: 1; text-align: center; }
+.prediction-result .value { font-size: 36px; font-weight: 700; color: var(--accent-red); }
+.prediction-result .unit { font-size: 18px; color: var(--text-light); }
+.desc-results { margin-top: 12px; display: none; }
+.desc-results.active { display: block; }
+.desc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.desc-item {
+  background: #FFFDE7; padding: 8px;
+  border-radius: 6px; border: 1px solid var(--border);
+  text-align: center;
+}
+.desc-item .label { font-size: 11px; color: var(--text-light); }
+.desc-item .value { font-size: 16px; font-weight: 600; color: var(--text); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+.data-table th { background: var(--accent-yellow); padding: 8px; text-align: left; border: 1px solid var(--border); }
+.data-table td { padding: 6px 8px; border: 1px solid var(--border); }
+.data-table tr:nth-child(even) { background: #FFFDE7; }
+.error-msg { color: #C62828; background: #FFEBEE; padding: 12px; border-radius: 8px; border: 1px solid #EF9A9A; }
+.info-panel { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.info-panel .metric { flex: 1; min-width: 100px; }
+.upload-label {
+  display: inline-block; padding: 10px 24px;
+  background: var(--btn-bg); color: white;
+  border-radius: 8px; font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; margin-left: 8px;
+}
+.upload-label:hover { background: var(--btn-hover); }
+.data-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.note { font-size: 12px; color: var(--text-light); margin-top: 4px; font-style: italic; }
+.manual-desc-toggle { margin-top: 8px; font-size: 13px; color: var(--accent-red); cursor: pointer; text-decoration: underline; }
+.manual-desc { display: none; margin-top: 8px; }
+.manual-desc.active { display: block; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <h1>Swelling Ratio Predictor</h1>
+    <p>ExtraTreesRegressor + SHAP Analysis | RDKit Descriptors | Pre-trained Model</p>
+    <div class="status-bar">
+      <span id="status-dot" class="ready"></span>
+      <span id="status-text">Model Ready</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="data-model">Data &amp; Model</button>
+    <button class="tab" data-tab="prediction">Prediction</button>
+    <button class="tab" data-tab="shap">SHAP Analysis</button>
+  </nav>
+
+  <main>
+    <!-- Tab 1: Data & Model -->
+    <section id="data-model" class="tab-content active">
+      <div class="card">
+        <h2>Model Performance</h2>
+        <div id="model-metrics" class="metrics-grid"></div>
+      </div>
+      <div class="card">
+        <h2>Predicted vs Actual (Full Dataset)</h2>
+        <div id="scatter-plot" class="plot-container"></div>
+      </div>
+      <div class="card">
+        <h2>Dataset</h2>
+        <div class="data-controls">
+          <button id="show-data">Show Data Preview</button>
+          <label class="upload-label">Upload CSV
+            <input type="file" id="csv-upload" accept=".csv" style="display:none;">
+          </label>
+        </div>
+        <div id="data-info"></div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Prediction -->
+    <section id="prediction" class="tab-content">
+      <div class="prediction-grid">
+        <div class="card">
+          <h2>Experimental Parameters</h2>
+          <div class="input-form" id="input-form"></div>
+        </div>
+        <div class="card">
+          <h2>Monomer Information</h2>
+          <div class="input-form" id="monomer-form"></div>
+          <div style="margin-top:12px;">
+            <button id="calc-desc">Calculate Descriptors (RDKit)</button>
+          </div>
+          <div class="manual-desc-toggle" id="manual-toggle">Manual descriptor input</div>
+          <div class="manual-desc" id="manual-desc-section">
+            <div class="input-form" id="manual-desc-form"></div>
+          </div>
+          <div id="desc-results" class="desc-results"></div>
+        </div>
+      </div>
+      <div class="card prediction-result-card">
+        <button id="predict" class="predict-btn">Predict SR</button>
+        <div id="prediction-result" class="prediction-result"></div>
+      </div>
+    </section>
+
+    <!-- Tab 3: SHAP Analysis -->
+    <section id="shap" class="tab-content">
+      <div class="card">
+        <h2>SHAP Feature Importance (Global, Test Set)</h2>
+        <button id="calc-shap">Calculate SHAP Values</button>
+        <div id="shap-bar-plot" class="plot-container" style="margin-top:16px;"></div>
+      </div>
+      <div class="card">
+        <h2>SHAP Waterfall (Current Prediction Inputs)</h2>
+        <div id="shap-waterfall-plot" class="plot-container"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Embedded model data -->
+<script type="application/json" id="model-data">__MODEL_JSON__</script>
+
+<!-- Embedded default CSV -->
+<script type="text/plain" id="default-csv-data">__CSV_DATA__</script>
+
+<!-- External libraries -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://unpkg.com/@rdkit/rdkit@2023.3.3/Code/Minimal/dist/RDKit_minimal.js"></script>
+
+<script>
+"use strict";
+
+// ════════════════════════════════════════════════════════════
+// Global State
+// ════════════════════════════════════════════════════════════
+let MODEL = null;
+let RDKitInstance = null;
+let RDKitFailed = false;
+let lastPredictionFeatures = null;
+let globalSHAPComputed = false;
+
+// ════════════════════════════════════════════════════════════
+// Model Loading
+// ════════════════════════════════════════════════════════════
+function loadModel() {
+  const jsonStr = document.getElementById('model-data').textContent;
+  MODEL = JSON.parse(jsonStr);
+  console.log('Model loaded:', MODEL.n_trees, 'trees,', MODEL.n_features, 'features');
+}
+
+// ════════════════════════════════════════════════════════════
+// Preprocessing (StandardScaler + OrdinalEncoder)
+// ════════════════════════════════════════════════════════════
+function preprocessInput(rawInput) {
+  // rawInput: { backbone: "ALG", bb_ratio: 0.1, initiator: "APS", ... }
+  // Returns: array of MODEL.n_features numbers (scaled + encoded)
+  const pp = MODEL.preprocessor;
+  const numFeats = MODEL.numeric_features;
+  const catFeats = MODEL.categorical_features;
+  const features = [];
+
+  // Numeric features (scaled)
+  for (let i = 0; i < numFeats.length; i++) {
+    const name = numFeats[i];
+    const val = parseFloat(rawInput[name]);
+    if (isNaN(val)) {
+      features.push(0); // fallback
+    } else {
+      const scaled = (val - pp.scaler_mean[i]) / pp.scaler_std[i];
+      features.push(scaled);
+    }
+  }
+
+  // Categorical features (ordinal encoded)
+  for (let i = 0; i < catFeats.length; i++) {
+    const name = catFeats[i];
+    const val = String(rawInput[name]);
+    const cats = pp.encoder_categories[i];
+    const idx = cats.indexOf(val);
+    features.push(idx === -1 ? -1 : idx);
+  }
+
+  return features;
+}
+
+// ════════════════════════════════════════════════════════════
+// Tree Prediction (pure JS)
+// ════════════════════════════════════════════════════════════
+function predictTree(tree, features) {
+  let node = 0;
+  // Safety: prevent infinite loop
+  let maxDepth = 10000;
+  while (tree.cl[node] !== -1 && tree.cl[node] !== undefined && maxDepth-- > 0) {
+    const feat = tree.f[node];
+    const thresh = tree.t[node];
+    if (features[feat] <= thresh) {
+      node = tree.cl[node];
+    } else {
+      node = tree.cr[node];
+    }
+  }
+  return tree.v[node];
+}
+
+function predictModel(features) {
+  let sum = 0;
+  for (let i = 0; i < MODEL.trees.length; i++) {
+    sum += predictTree(MODEL.trees[i], features);
+  }
+  return sum / MODEL.trees.length;
+}
+
+// ════════════════════════════════════════════════════════════
+// Saabas SHAP (approximate SHAP for tree ensembles)
+// ════════════════════════════════════════════════════════════
+function computeSampleSHAP(features) {
+  const nFeats = MODEL.n_features;
+  const contributions = new Array(nFeats).fill(0);
+  let baseValue = 0;
+  const nTrees = MODEL.trees.length;
+
+  for (let t = 0; t < nTrees; t++) {
+    const tree = MODEL.trees[t];
+    baseValue += tree.v[0]; // root value
+    let node = 0;
+    let maxDepth = 10000;
+    while (tree.cl[node] !== -1 && tree.cl[node] !== undefined && maxDepth-- > 0) {
+      const feat = tree.f[node];
+      const thresh = tree.t[node];
+      const parentValue = tree.v[node];
+      let childNode;
+      if (features[feat] <= thresh) {
+        childNode = tree.cl[node];
+      } else {
+        childNode = tree.cr[node];
+      }
+      const childValue = tree.v[childNode];
+      contributions[feat] += childValue - parentValue;
+      node = childNode;
+    }
+  }
+
+  baseValue /= nTrees;
+  for (let i = 0; i < nFeats; i++) {
+    contributions[i] /= nTrees;
+  }
+
+  const prediction = baseValue + contributions.reduce((a, b) => a + b, 0);
+
+  return { baseValue, contributions, prediction };
+}
+
+function computeGlobalSHAP() {
+  const nFeats = MODEL.n_features;
+  const testData = MODEL.test_data;
+  const absSums = new Array(nFeats).fill(0);
+
+  for (let s = 0; s < testData.length; s++) {
+    const result = computeSampleSHAP(testData[s]);
+    for (let i = 0; i < nFeats; i++) {
+      absSums[i] += Math.abs(result.contributions[i]);
+    }
+  }
+
+  const meanAbs = absSums.map(v => v / testData.length);
+
+  // Sort by importance
+  const indices = Array.from({ length: nFeats }, (_, i) => i);
+  indices.sort((a, b) => meanAbs[b] - meanAbs[a]);
+
+  return {
+    featureNames: indices.map(i => MODEL.feature_names[i]),
+    meanAbs: indices.map(i => meanAbs[i])
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// RDKit Descriptor Calculation
+// ════════════════════════════════════════════════════════════
+async function ensureRDKit() {
+  if (RDKitInstance) return RDKitInstance;
+  if (RDKitFailed) throw new Error('RDKit not available');
+
+  if (typeof initRDKitModule === 'undefined') {
+    RDKitFailed = true;
+    throw new Error('RDKit script not loaded. Check internet connection.');
+  }
+
+  try {
+    RDKitInstance = await initRDKitModule();
+    console.log('RDKit initialized');
+    return RDKitInstance;
+  } catch (e) {
+    RDKitFailed = true;
+    throw new Error('Failed to initialize RDKit: ' + e.message);
+  }
+}
+
+function getDescField(desc, names) {
+  for (const n of names) {
+    if (desc[n] !== undefined && desc[n] !== null) return desc[n];
+  }
+  return 0;
+}
+
+function countSMARTS(rdkit, mol, smarts) {
+  try {
+    const qmol = rdkit.get_qmol(smarts);
+    if (!qmol || !qmol.is_valid()) return 0;
+    const result = mol.get_substruct_matches(qmol);
+    if (!result) return 0;
+    const parsed = JSON.parse(result);
+    if (Array.isArray(parsed)) return parsed.length;
+    if (parsed && typeof parsed === 'object' && parsed.atoms) return 1;
+    return 0;
+  } catch (e) {
+    try {
+      return mol.has_substruct_match(rdkit.get_qmol(smarts)) ? 1 : 0;
+    } catch (e2) {
+      return 0;
+    }
+  }
+}
+
+const SMARTS_COOH  = '[CX3](=O)[OX2H1]';
+const SMARTS_AMIDE = '[CX3](=O)[NX3]';
+const SMARTS_SO3H  = '[SX4](=O)(=O)[OX2H1]';
+
+function computeMonomerDescriptors(rdkit, smiles) {
+  const mol = rdkit.get_mol(smiles);
+  if (!mol || !mol.is_valid()) {
+    throw new Error('Invalid SMILES: ' + smiles);
+  }
+
+  let desc;
+  try {
+    desc = JSON.parse(mol.get_descriptors());
+  } catch (e) {
+    desc = {};
+  }
+
+  const result = {
+    MW:    getDescField(desc, ['amw', 'average_mw', 'mw']),
+    logP:  getDescField(desc, ['CrippenClogP', 'logP', 'CrippenLogP']),
+    TPSA:  getDescField(desc, ['tpsa', 'TPSA']),
+    HBA:   getDescField(desc, ['NumHBA', 'NumHAcceptors', 'num_hba']),
+    MR:    getDescField(desc, ['CrippenMR', 'mr', 'CrippenMolarRefractivity']),
+    num_COOH:  countSMARTS(rdkit, mol, SMARTS_COOH),
+    num_amide: countSMARTS(rdkit, mol, SMARTS_AMIDE),
+    num_SO3H:  countSMARTS(rdkit, mol, SMARTS_SO3H)
+  };
+
+  mol.delete();
+  return result;
+}
+
+async function calculateDescriptors(smiles1, amount1, smiles2, amount2) {
+  const rdkit = await ensureRDKit();
+
+  const a1 = parseFloat(amount1) || 0;
+  const a2 = parseFloat(amount2) || 0;
+
+  if (a1 <= 0 && a2 <= 0) {
+    throw new Error('At least one monomer amount must be > 0');
+  }
+
+  const total = a1 + a2;
+  const w1 = a1 / total;
+  const w2 = a2 / total;
+
+  const desc1 = computeMonomerDescriptors(rdkit, smiles1);
+
+  let desc2 = null;
+  if (smiles2 && smiles2.trim() && a2 > 0) {
+    desc2 = computeMonomerDescriptors(rdkit, smiles2);
+  }
+
+  const weighted = {};
+  const keys = ['MW', 'logP', 'TPSA', 'HBA', 'MR', 'num_COOH', 'num_amide', 'num_SO3H'];
+  for (const k of keys) {
+    if (desc2) {
+      weighted[k] = w1 * desc1[k] + w2 * desc2[k];
+    } else {
+      weighted[k] = desc1[k];
+    }
+  }
+
+  return weighted;
+}
+
+// ════════════════════════════════════════════════════════════
+// UI Helpers
+// ════════════════════════════════════════════════════════════
+function setStatus(text, type) {
+  const dot = document.getElementById('status-dot');
+  dot.className = type || 'ready';
+  document.getElementById('status-text').textContent = text;
+}
+
+function showError(containerId, msg) {
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = '<div class="error-msg">' + msg + '</div>';
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelector('.tab[data-tab="' + tabId + '"]').classList.add('active');
+
+  // If switching to prediction tab, try to draw waterfall
+  if (tabId === 'shap' && lastPredictionFeatures) {
+    drawWaterfall(lastPredictionFeatures);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Input Form Setup
+// ════════════════════════════════════════════════════════════
+const INPUT_FIELDS = [
+  { name: 'backbone', label: 'Backbone', type: 'select', unit: 'graft type', options: [] },
+  { name: 'bb_ratio', label: 'bb_ratio', type: 'number', unit: 'backbone/monomer', value: 0.1, step: 0.001, min: 0 },
+  { name: 'initiator', label: 'Initiator', type: 'select', unit: 'initiator type', options: [] },
+  { name: 'init_ratio', label: 'init_ratio', type: 'number', unit: 'initiator/monomer', value: 0.01, step: 0.001, min: 0 },
+  { name: 'cl_ratio', label: 'cl_ratio', type: 'number', unit: 'MBA amount', value: 0.01, step: 0.001, min: 0 },
+  { name: 'neutral_deg', label: 'neutral_deg', type: 'number', unit: '% (0 if none)', value: 0, step: 0.1, min: 0, max: 100 },
+  { name: 'temp', label: 'temp', type: 'number', unit: '\u2103', value: 60, step: 1 },
+  { name: 'time', label: 'time', type: 'number', unit: 'h', value: 60, step: 1 },
+  { name: 'dry_temp', label: 'dry_temp', type: 'number', unit: '\u2103', value: 55, step: 1 },
+  { name: 'swell_temp', label: 'swell_temp', type: 'number', unit: '\u2103', value: 25, step: 1 },
+];
+
+const MONOMER_FIELDS = [
+  { name: 'smiles1', label: 'Monomer 1 SMILES', type: 'text', placeholder: 'e.g. C=CC(=O)O (acrylic acid)', value: 'C=CC(=O)O' },
+  { name: 'amount1', label: 'Monomer 1 Amount', type: 'number', unit: 'mol', value: 0.1, step: 0.001, min: 0 },
+  { name: 'smiles2', label: 'Monomer 2 SMILES', type: 'text', placeholder: 'e.g. C=CC(=O)N (acrylamide)', value: '' },
+  { name: 'amount2', label: 'Monomer 2 Amount', type: 'number', unit: 'mol', value: 0, step: 0.001, min: 0 },
+];
+
+const DESCRIPTOR_FIELDS = [
+  { name: 'MW', label: 'MW', unit: '' },
+  { name: 'logP', label: 'logP', unit: '' },
+  { name: 'TPSA', label: 'TPSA', unit: '' },
+  { name: 'HBA', label: 'HBA', unit: '' },
+  { name: 'MR', label: 'MR', unit: '' },
+  { name: 'num_COOH', label: 'num_COOH', unit: '' },
+  { name: 'num_amide', label: 'num_amide', unit: '' },
+  { name: 'num_SO3H', label: 'num_SO3H', unit: '' },
+];
+
+function buildInputForm() {
+  const form = document.getElementById('input-form');
+  let html = '';
+  for (const f of INPUT_FIELDS) {
+    if (f.type === 'select') {
+      let opts = f.options.map(o => '<option value="' + o + '">' + o + '</option>').join('');
+      html += '<div class="input-group"><label>' + f.label + ' <span class="unit">(' + f.unit + ')</span></label><select id="input-' + f.name + '">' + opts + '</select></div>';
+    } else {
+      html += '<div class="input-group"><label>' + f.label + ' <span class="unit">(' + f.unit + ')</span></label><input type="number" id="input-' + f.name + '" value="' + f.value + '" step="' + f.step + '" min="' + (f.min !== undefined ? f.min : '') + '"' + (f.max !== undefined ? ' max="' + f.max + '"' : '') + '></div>';
+    }
+  }
+  form.innerHTML = html;
+}
+
+function buildMonomerForm() {
+  const form = document.getElementById('monomer-form');
+  let html = '';
+  for (const f of MONOMER_FIELDS) {
+    if (f.type === 'text') {
+      html += '<div class="input-group"><label>' + f.label + '</label><input type="text" id="input-' + f.name + '" value="' + (f.value || '') + '" placeholder="' + (f.placeholder || '') + '"></div>';
+    } else {
+      html += '<div class="input-group"><label>' + f.label + ' <span class="unit">(' + f.unit + ')</span></label><input type="number" id="input-' + f.name + '" value="' + f.value + '" step="' + f.step + '" min="' + f.min + '"></div>';
+    }
+  }
+  form.innerHTML = html;
+}
+
+function buildManualDescForm() {
+  const form = document.getElementById('manual-desc-form');
+  let html = '';
+  for (const d of DESCRIPTOR_FIELDS) {
+    html += '<div class="input-group"><label>' + d.label + '</label><input type="number" id="desc-' + d.name + '" value="0" step="0.001"></div>';
+  }
+  form.innerHTML = html;
+}
+
+function populateDropdowns() {
+  const cats = MODEL.preprocessor.encoder_categories;
+  // backbone
+  INPUT_FIELDS[0].options = cats[0];
+  // initiator
+  INPUT_FIELDS[2].options = cats[1];
+}
+
+// ════════════════════════════════════════════════════════════
+// Plotly Visualization
+// ════════════════════════════════════════════════════════════
+function plotScatter() {
+  const preds = MODEL.full_predictions;
+  const targets = MODEL.full_targets;
+
+  const minVal = Math.min(...preds, ...targets);
+  const maxVal = Math.max(...preds, ...targets);
+
+  const trace = {
+    x: targets, y: preds,
+    mode: 'markers', type: 'scatter',
+    marker: { color: '#E57373', size: 6, opacity: 0.7 },
+    name: 'Data'
+  };
+
+  const diag = {
+    x: [minVal, maxVal], y: [minVal, maxVal],
+    mode: 'lines', type: 'scatter',
+    line: { color: '#999', dash: 'dash', width: 2 },
+    name: 'y = x'
+  };
+
+  const layout = {
+    xaxis: { title: 'Actual SR (g/g)', gridcolor: '#FFCC80' },
+    yaxis: { title: 'Predicted SR (g/g)', gridcolor: '#FFCC80' },
+    margin: { l: 60, r: 30, t: 30, b: 50 },
+    plot_bgcolor: '#FFFDE7',
+    paper_bgcolor: 'transparent',
+    font: { family: 'Segoe UI, sans-serif', size: 13, color: '#424242' },
+    showlegend: true,
+    legend: { x: 0.02, y: 0.98 }
+  };
+
+  Plotly.newPlot('scatter-plot', [trace, diag], layout, { responsive: true, displayModeBar: false });
+}
+
+function plotSHAPBar(data) {
+  const colors = data.meanAbs.map(v => v >= 0 ? '#E57373' : '#7986CB');
+
+  const trace = {
+    x: data.meanAbs,
+    y: data.featureNames,
+    type: 'bar',
+    orientation: 'h',
+    marker: { color: '#E57373' },
+    text: data.meanAbs.map(v => v.toFixed(3)),
+    textposition: 'outside',
+    textfont: { size: 11 }
+  };
+
+  const layout = {
+    xaxis: { title: 'Mean |SHAP value|', gridcolor: '#FFCC80' },
+    margin: { l: 140, r: 60, t: 20, b: 50 },
+    plot_bgcolor: '#FFFDE7',
+    paper_bgcolor: 'transparent',
+    font: { family: 'Segoe UI, sans-serif', size: 12, color: '#424242' },
+    height: 500
+  };
+
+  Plotly.newPlot('shap-bar-plot', [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function plotSHAPWaterfall(data) {
+  // data: { baseValue, prediction, featureNames, contributions }
+  // Sort by absolute contribution
+  const indices = Array.from({ length: data.contributions.length }, (_, i) => i);
+  indices.sort((a, b) => Math.abs(data.contributions[b]) - Math.abs(data.contributions[a]));
+
+  // Show top 15
+  const topN = Math.min(15, indices.length);
+  const shown = indices.slice(0, topN);
+
+  const labels = ['Base value'].concat(shown.map(i => data.featureNames[i])).concat(['Prediction']);
+  const values = [data.baseValue].concat(shown.map(i => data.contributions[i])).concat([0]);
+
+  const measure = ['absolute'].concat(shown.map(() => 'relative')).concat(['total']);
+
+  const colors = [];
+  for (let i = 1; i <= topN; i++) {
+    colors.push(values[i] >= 0 ? '#E57373' : '#7986CB');
+  }
+
+  const trace = {
+    type: 'waterfall',
+    x: labels,
+    y: values,
+    measure: measure,
+    increasing: { marker: { color: '#E57373' } },
+    decreasing: { marker: { color: '#7986CB' } },
+    totals: { marker: { color: '#FFD54F' } },
+    connector: { line: { color: '#999' } },
+    textposition: 'outside',
+    text: values.map(v => v >= 0 ? '+' + v.toFixed(2) : v.toFixed(2))
+  };
+
+  const layout = {
+    yaxis: { title: 'SR (g/g)', gridcolor: '#FFCC80' },
+    margin: { l: 60, r: 30, t: 30, b: 120 },
+    plot_bgcolor: '#FFFDE7',
+    paper_bgcolor: 'transparent',
+    font: { family: 'Segoe UI, sans-serif', size: 12, color: '#424242' },
+    height: 500
+  };
+
+  Plotly.newPlot('shap-waterfall-plot', [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+// ════════════════════════════════════════════════════════════
+// Display Helpers
+// ════════════════════════════════════════════════════════════
+function showMetrics() {
+  const m = MODEL.metrics;
+  const html = `
+    <div class="metric"><div class="metric-value">${m.r2_test.toFixed(4)}</div><div class="metric-label">R\u00b2 (test)</div></div>
+    <div class="metric"><div class="metric-value">${m.r2_train.toFixed(4)}</div><div class="metric-label">R\u00b2 (train)</div></div>
+    <div class="metric"><div class="metric-value">${m.rmse_test.toFixed(2)}</div><div class="metric-label">RMSE (test)</div></div>
+    <div class="metric"><div class="metric-value">${m.rmse_train.toFixed(2)}</div><div class="metric-label">RMSE (train)</div></div>
+    <div class="metric"><div class="metric-value">${m.mae_test.toFixed(2)}</div><div class="metric-label">MAE (test)</div></div>
+    <div class="metric"><div class="metric-value">${m.mae_train.toFixed(2)}</div><div class="metric-label">MAE (train)</div></div>
+    <div class="metric"><div class="metric-value">${MODEL.n_trees}</div><div class="metric-label">Trees</div></div>
+    <div class="metric"><div class="metric-value">${MODEL.n_features}</div><div class="metric-label">Features</div></div>
+    <div class="metric"><div class="metric-value">${MODEL.full_targets.length}</div><div class="metric-label">Samples</div></div>
+  `;
+  document.getElementById('model-metrics').innerHTML = html;
+}
+
+function showDescriptorResults(desc) {
+  let html = '<div class="desc-grid">';
+  const keys = ['MW', 'logP', 'TPSA', 'HBA', 'MR', 'num_COOH', 'num_amide', 'num_SO3H'];
+  for (const k of keys) {
+    const v = desc[k];
+    const display = Number.isInteger(v) ? v.toString() : v.toFixed(4);
+    html += '<div class="desc-item"><div class="label">' + k + '</div><div class="value">' + display + '</div></div>';
+  }
+  html += '</div>';
+  const el = document.getElementById('desc-results');
+  el.innerHTML = html;
+  el.classList.add('active');
+
+  // Also fill manual desc fields
+  for (const k of keys) {
+    const input = document.getElementById('desc-' + k);
+    if (input) input.value = desc[k];
+  }
+}
+
+function showPredictionResult(sr) {
+  document.getElementById('prediction-result').innerHTML =
+    '<div class="value">' + sr.toFixed(2) + '</div><div class="unit">SR (g/g)</div>';
+}
+
+function drawWaterfall(features) {
+  const result = computeSampleSHAP(features);
+  plotSHAPWaterfall({
+    baseValue: result.baseValue,
+    prediction: result.prediction,
+    featureNames: MODEL.feature_names,
+    contributions: result.contributions
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// Event Handlers
+// ════════════════════════════════════════════════════════════
+async function handleCalculateDesc() {
+  const smiles1 = document.getElementById('input-smiles1').value.trim();
+  const amount1 = parseFloat(document.getElementById('input-amount1').value) || 0;
+  const smiles2 = document.getElementById('input-smiles2').value.trim();
+  const amount2 = parseFloat(document.getElementById('input-amount2').value) || 0;
+
+  if (!smiles1) {
+    showError('desc-results', 'Please enter Monomer 1 SMILES');
+    document.getElementById('desc-results').classList.add('active');
+    return;
+  }
+
+  const btn = document.getElementById('calc-desc');
+  btn.disabled = true;
+  btn.textContent = 'Calculating...';
+
+  try {
+    const desc = await calculateDescriptors(smiles1, amount1, smiles2, amount2);
+    showDescriptorResults(desc);
+  } catch (e) {
+    showError('desc-results', e.message + '<br><br>You can use manual descriptor input below.');
+    document.getElementById('desc-results').classList.add('active');
+    document.getElementById('manual-desc-section').classList.add('active');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Calculate Descriptors (RDKit)';
+}
+
+function handlePredict() {
+  // Collect inputs
+  const rawInput = {};
+  for (const f of INPUT_FIELDS) {
+    const el = document.getElementById('input-' + f.name);
+    rawInput[f.name] = el.value;
+  }
+
+  // Collect descriptor values
+  const descKeys = ['MW', 'logP', 'TPSA', 'HBA', 'MR', 'num_COOH', 'num_amide', 'num_SO3H'];
+  for (const k of descKeys) {
+    const el = document.getElementById('desc-' + k);
+    rawInput[k] = el ? parseFloat(el.value) || 0 : 0;
+  }
+
+  // Preprocess
+  const features = preprocessInput(rawInput);
+  lastPredictionFeatures = features;
+
+  // Predict
+  const sr = predictModel(features);
+
+  showPredictionResult(sr);
+
+  // If on SHAP tab, update waterfall
+  if (document.getElementById('shap').classList.contains('active')) {
+    drawWaterfall(features);
+  }
+}
+
+function handleCalcSHAP() {
+  const btn = document.getElementById('calc-shap');
+  btn.disabled = true;
+  btn.textContent = 'Calculating...';
+
+  // Use setTimeout to allow UI update
+  setTimeout(() => {
+    try {
+      const shapData = computeGlobalSHAP();
+      plotSHAPBar(shapData);
+
+      // Also draw waterfall for current inputs
+      if (lastPredictionFeatures) {
+        drawWaterfall(lastPredictionFeatures);
+      } else {
+        // Use default inputs
+        handlePredict();
+        drawWaterfall(lastPredictionFeatures);
+      }
+
+      globalSHAPComputed = true;
+    } catch (e) {
+      showError('shap-bar-plot', 'SHAP computation failed: ' + e.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Calculate SHAP Values';
+  }, 50);
+}
+
+function handleShowData() {
+  const csvText = document.getElementById('default-csv-data').textContent.trim();
+  const lines = csvText.split('\n');
+  const headers = lines[0].replace(/^\ufeff/, '').split(',');
+  const rows = lines.slice(1, 6).map(line => line.split(','));
+
+  let html = '<div class="info-panel">';
+  html += '<div class="metric"><div class="metric-value">' + (lines.length - 1) + '</div><div class="metric-label">Rows</div></div>';
+  html += '<div class="metric"><div class="metric-value">' + headers.length + '</div><div class="metric-label">Columns</div></div>';
+  html += '</div>';
+
+  html += '<div style="overflow-x:auto;"><table class="data-table"><thead><tr>';
+  headers.forEach(h => html += '<th>' + h + '</th>');
+  html += '</tr></thead><tbody>';
+  rows.forEach(row => {
+    html += '<tr>';
+    row.forEach(v => html += '<td>' + v + '</td>');
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  document.getElementById('data-info').innerHTML = html;
+}
+
+function handleCsvUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const csvText = ev.target.result;
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].replace(/^\ufeff/, '').split(',');
+    const rows = lines.slice(1, 6).map(line => line.split(','));
+
+    let html = '<div class="info-panel">';
+    html += '<div class="metric"><div class="metric-value">' + (lines.length - 1) + '</div><div class="metric-label">Rows</div></div>';
+    html += '<div class="metric"><div class="metric-value">' + headers.length + '</div><div class="metric-label">Columns</div></div>';
+    html += '</div>';
+
+    html += '<div style="overflow-x:auto;"><table class="data-table"><thead><tr>';
+    headers.forEach(h => html += '<th>' + h + '</th>');
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      html += '<tr>';
+      for (let i = 0; i < headers.length; i++) {
+        html += '<td>' + (row[i] || '') + '</td>';
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    document.getElementById('data-info').innerHTML = html;
+  };
+  reader.readAsText(file);
+}
+
+// ════════════════════════════════════════════════════════════
+// Initialization
+// ════════════════════════════════════════════════════════════
+function init() {
+  // Load model from embedded JSON
+  loadModel();
+
+  // Populate dropdown options from encoder categories
+  populateDropdowns();
+
+  // Build input forms
+  buildInputForm();
+  buildMonomerForm();
+  buildManualDescForm();
+
+  // Show metrics
+  showMetrics();
+
+  // Plot scatter
+  plotScatter();
+
+  // Setup tab navigation
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // Setup event handlers
+  document.getElementById('show-data').addEventListener('click', handleShowData);
+  document.getElementById('csv-upload').addEventListener('change', handleCsvUpload);
+  document.getElementById('calc-desc').addEventListener('click', handleCalculateDesc);
+  document.getElementById('predict').addEventListener('click', handlePredict);
+  document.getElementById('calc-shap').addEventListener('click', handleCalcSHAP);
+
+  // Manual descriptor toggle
+  document.getElementById('manual-toggle').addEventListener('click', () => {
+    document.getElementById('manual-desc-section').classList.toggle('active');
+  });
+
+  setStatus('Model Ready', 'ready');
+  console.log('App initialized');
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
