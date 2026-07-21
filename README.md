@@ -251,5 +251,3 @@ After the first load, the browser caches Plotly.js and RDKit.js, enabling fully 
 Requires JavaScript ES6+ support and WASM (for RDKit.js).
 
 ---
-
-README 已生成并保存在 `/home/z/my-project/README.md`。涵盖了数据集结构、模型架构、8 个分子描述符定义、SHAP 计算原理、使用流程、分类编码映射表、离线说明和文件清单。需要调整内容或补充什么随时说。
